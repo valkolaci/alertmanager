@@ -147,9 +147,11 @@ func run() int {
 		retention       = kingpin.Flag("data.retention", "How long to keep data for.").Default("120h").Duration()
 		alertGCInterval = kingpin.Flag("alerts.gc-interval", "Interval between alert GC.").Default("30m").Duration()
 
-		externalURL   = kingpin.Flag("web.external-url", "The URL under which Alertmanager is externally reachable (for example, if Alertmanager is served via a reverse proxy). Used for generating relative and absolute links back to Alertmanager itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Alertmanager. If omitted, relevant URL components will be derived automatically.").String()
-		routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").String()
-		listenAddress = kingpin.Flag("web.listen-address", "Address to listen on for the web interface and API.").Default(":9093").String()
+		externalURL    = kingpin.Flag("web.external-url", "The URL under which Alertmanager is externally reachable (for example, if Alertmanager is served via a reverse proxy). Used for generating relative and absolute links back to Alertmanager itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Alertmanager. If omitted, relevant URL components will be derived automatically.").String()
+		routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").String()
+		listenAddress  = kingpin.Flag("web.listen-address", "Address to listen on for the web interface and API.").Default(":9093").String()
+		getConcurrency = kingpin.Flag("web.get-concurrency", "Maximum number of GET requests processed concurrently. If negative or zero, GOMAXPROCS is used.").Default("0").Int()
+		getTimeout     = kingpin.Flag("web.timeout", "Timeout for all HTTP requests. If negative or zero, no timeout is set.").Default("30s").Duration()
 
 		clusterBindAddr = kingpin.Flag("cluster.listen-address", "Listen address for cluster.").
 				Default(defaultClusterAddr).String()
@@ -413,13 +415,14 @@ func run() int {
 	apiV1.Register(router.WithPrefix("/api/v1"))
 
 	mux := http.NewServeMux()
-	mux.Handle("/", router)
+	limiter := makeLimitHandler(*getTimeout, *getConcurrency)
+	mux.Handle("/", limiter(router))
 
 	apiPrefix := ""
 	if *routePrefix != "/" {
 		apiPrefix = *routePrefix
 	}
-	mux.Handle(apiPrefix+"/api/v2/", http.StripPrefix(apiPrefix+"/api/v2", apiV2.Handler))
+	mux.Handle(apiPrefix+"/api/v2/", limiter(http.StripPrefix(apiPrefix+"/api/v2", apiV2.Handler)))
 
 	srv := http.Server{Addr: *listenAddress, Handler: mux}
 	srvc := make(chan struct{})
@@ -515,4 +518,44 @@ func md5HashAsMetricValue(data []byte) float64 {
 	var bytes = make([]byte, 8)
 	copy(bytes, smallSum)
 	return float64(binary.LittleEndian.Uint64(bytes))
+}
+
+// makeLimitHandler returns a middleware that sets a timeout for HTTP requests
+// and also limits the number of concurrently processed GET requests to the
+// given number.
+//
+// If timeout is < 1, no timeout is enforced.
+//
+// If concurrency is < 1, GOMAXPROCS is used as the concurrency limit.
+//
+// The returned middleware serves http.StatusServiceUnavailable (503) for requests that
+// would exceed the number.
+func makeLimitHandler(timeout time.Duration, concurrency int) func(http.Handler) http.Handler {
+	if concurrency < 1 {
+		concurrency = runtime.GOMAXPROCS(0)
+	}
+	inFlightSem := make(chan struct{}, concurrency)
+
+	return func(h http.Handler) http.Handler {
+		wrapped := http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
+			if req.Method == http.MethodGet { // Only limit concurrency of GETs.
+				select {
+				case inFlightSem <- struct{}{}: // All good, carry on.
+					defer func() { <-inFlightSem }()
+				default:
+					http.Error(rsp, fmt.Sprintf(
+						"Limit of concurrent GET requests reached (%d), try again later.\n", concurrency,
+					), http.StatusServiceUnavailable)
+					return
+				}
+			}
+			h.ServeHTTP(rsp, req)
+		})
+		if timeout <= 0 {
+			return wrapped
+		}
+		return http.TimeoutHandler(h, timeout, fmt.Sprintf(
+			"Exceeded configured timeout of %v.\n", timeout,
+		))
+	}
 }
