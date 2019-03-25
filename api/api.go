@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"runtime"
 	"time"
 
@@ -32,7 +31,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/route"
-	"github.com/prometheus/prometheus/pkg/labels"
 
 	"github.com/go-kit/kit/log"
 )
@@ -75,7 +73,7 @@ type Options struct {
 	// GroupFunc returns a list of alert groups. The alerts are grouped
 	// according to the current active configuration. Alerts returned are
 	// filtered by the arguments provided to the function.
-	GroupFunc func(matchers []*labels.Matcher, receivers *regexp.Regexp, silenced, inhibited, active bool) dispatch.AlertGroups
+	GroupFunc func(func(*dispatch.Route) bool, func(*types.Alert, time.Time) bool) (dispatch.AlertGroups, map[model.Fingerprint][]string)
 }
 
 func (o Options) validate() error {

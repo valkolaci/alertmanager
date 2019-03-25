@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -38,7 +37,6 @@ import (
 	promlogflag "github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/common/version"
-	"github.com/prometheus/prometheus/pkg/labels"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/prometheus/alertmanager/api"
@@ -251,8 +249,8 @@ func run() int {
 	var disp *dispatch.Dispatcher
 	defer disp.Stop()
 
-	groupFn := func(matchers []*labels.Matcher, receivers *regexp.Regexp, silenced, inhibited, active bool) dispatch.AlertGroups {
-		return disp.Groups(matchers, receivers, silenced, inhibited, active)
+	groupFn := func(routeFilter func(*dispatch.Route) bool, alertFilter func(*types.Alert, time.Time) bool) (dispatch.AlertGroups, map[model.Fingerprint][]string) {
+		return disp.Groups(routeFilter, alertFilter)
 	}
 
 	api, err := api.New(api.Options{
@@ -324,14 +322,12 @@ func run() int {
 			logger,
 		)
 
-		setAlertStatus := func(labels model.LabelSet) {
+		api.Update(conf, func(labels model.LabelSet) {
 			inhibitor.Mutes(labels)
 			silencer.Mutes(labels)
-		}
+		})
 
-		api.Update(conf, setAlertStatus)
-
-		disp = dispatch.NewDispatcher(alerts, dispatch.NewRoute(conf.Route, nil), pipeline, marker, setAlertStatus, timeoutFunc, logger)
+		disp = dispatch.NewDispatcher(alerts, dispatch.NewRoute(conf.Route, nil), pipeline, marker, timeoutFunc, logger)
 
 		go disp.Run()
 		go inhibitor.Run()
