@@ -411,9 +411,9 @@ func (api *API) getAlertGroupsHandler(params alertgroup_ops.GetAlertGroupsParams
 			Alerts:   make([]*open_api_models.GettableAlert, 0, len(alertGroup.Alerts)),
 		}
 
-		for _, ea := range alertGroup.Alerts {
-			aa := alertToOpenAPIAlert(ea)
-			ag.Alerts = append(ag.Alerts, aa)
+		for _, enrichedAlert := range alertGroup.Alerts {
+			apiAlert := alertToOpenAPIAlert(enrichedAlert)
+			ag.Alerts = append(ag.Alerts, apiAlert)
 		}
 		res = append(res, ag)
 	}
