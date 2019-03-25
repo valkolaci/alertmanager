@@ -138,7 +138,7 @@ func (d *Dispatcher) run(it provider.AlertIterator) {
 	}
 }
 
-// AlertGroup represents how alerts alerts exist within an aggrGroup
+// AlertGroup represents how alerts exist within an aggrGroup.
 type AlertGroup struct {
 	Alerts   []*EnrichedAlert `json:"alerts"`
 	Labels   model.LabelSet   `json:"labels,omitempty"`
