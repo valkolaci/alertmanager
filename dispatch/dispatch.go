@@ -190,7 +190,7 @@ func (d *Dispatcher) Groups(routeFilter func(*Route) bool, alertFilter func(*typ
 				if r, ok := receivers[fp]; ok {
 					// Receivers slice already exists. Add
 					// the current receiver to the slice.
-					r = append(r, receiver)
+					receivers[fp] = append(r, receiver)
 				} else {
 					// First time we've seen this alert fingerprint.
 					// Initialize a new receivers slice.
