@@ -54,7 +54,7 @@ type API struct {
 	peer           *cluster.Peer
 	silences       *silence.Silences
 	alerts         provider.Alerts
-	groups         groupsFn
+	alertGroups    groupsFn
 	getAlertStatus getAlertStatusFn
 	uptime         time.Time
 
@@ -87,7 +87,7 @@ func NewAPI(
 	api := API{
 		alerts:         alerts,
 		getAlertStatus: sf,
-		groups:         gf,
+		alertGroups:    gf,
 		peer:           peer,
 		silences:       silences,
 		logger:         l,
@@ -371,7 +371,7 @@ func (api *API) getAlertGroupsHandler(params alertgroup_ops.GetAlertGroupsParams
 
 	rf := routeFilter(receiverFilter)
 	af := api.alertFilter(matchers, *params.Silenced, *params.Inhibited, *params.Active)
-	alertGroups, allReceivers := api.groups(rf, af)
+	alertGroups, allReceivers := api.alertGroups(rf, af)
 
 	res := make(open_api_models.AlertGroups, 0, len(alertGroups))
 
