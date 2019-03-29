@@ -361,6 +361,7 @@ func (api *API) getAlertGroupsHandler(params alertgroup_ops.GetAlertGroupsParams
 	if params.Receiver != nil {
 		receiverFilter, err = regexp.Compile("^(?:" + *params.Receiver + ")$")
 		if err != nil {
+			level.Error(api.logger).Log("msg", "failed to compile receiver regex", "err", err)
 			return alertgroup_ops.
 				NewGetAlertGroupsBadRequest().
 				WithPayload(
