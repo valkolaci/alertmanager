@@ -378,7 +378,7 @@ func (api *API) getAlertGroupsHandler(params alertgroup_ops.GetAlertGroupsParams
 
 	for _, alertGroup := range alertGroups {
 		ag := &open_api_models.AlertGroup{
-			Receiver: alertGroup.Receiver,
+			Receiver: &open_api_models.Receiver{Name: &alertGroup.Receiver},
 			Labels:   modelLabelSetToAPILabelSet(alertGroup.Labels),
 			Alerts:   make([]*open_api_models.GettableAlert, 0, len(alertGroup.Alerts)),
 		}

@@ -466,7 +466,7 @@ definitions:
       labels:
         $ref: '#/definitions/labelSet'
       receiver:
-        type: string
+        $ref: '#/definitions/receiver'
       alerts:
         type: array
         items:

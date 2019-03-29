@@ -39,7 +39,7 @@ type AlertGroup struct {
 	Labels LabelSet `json:"labels,omitempty"`
 
 	// receiver
-	Receiver string `json:"receiver,omitempty"`
+	Receiver *Receiver `json:"receiver,omitempty"`
 }
 
 // Validate validates this alert group
@@ -51,6 +51,10 @@ func (m *AlertGroup) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateLabels(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateReceiver(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -96,6 +100,24 @@ func (m *AlertGroup) validateLabels(formats strfmt.Registry) error {
 			return ve.ValidateName("labels")
 		}
 		return err
+	}
+
+	return nil
+}
+
+func (m *AlertGroup) validateReceiver(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Receiver) { // not required
+		return nil
+	}
+
+	if m.Receiver != nil {
+		if err := m.Receiver.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("receiver")
+			}
+			return err
+		}
 	}
 
 	return nil

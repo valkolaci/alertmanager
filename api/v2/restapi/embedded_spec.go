@@ -400,7 +400,7 @@ func init() {
           "$ref": "#/definitions/labelSet"
         },
         "receiver": {
-          "type": "string"
+          "$ref": "#/definitions/receiver"
         }
       }
     },
@@ -1198,7 +1198,7 @@ func init() {
           "$ref": "#/definitions/labelSet"
         },
         "receiver": {
-          "type": "string"
+          "$ref": "#/definitions/receiver"
         }
       }
     },
