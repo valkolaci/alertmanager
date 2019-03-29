@@ -370,7 +370,16 @@ func (api *API) getAlertGroupsHandler(params alertgroup_ops.GetAlertGroupsParams
 		}
 	}
 
-	rf := routeFilter(receiverFilter)
+	rf := func(receiverFilter *regexp.Regexp) func(r *dispatch.Route) bool {
+		return func(r *dispatch.Route) bool {
+			receiver := r.RouteOpts.Receiver
+			if receiverFilter != nil && !receiverFilter.MatchString(receiver) {
+				return false
+			}
+			return true
+		}
+	}(receiverFilter)
+
 	af := api.alertFilter(matchers, *params.Silenced, *params.Inhibited, *params.Active)
 	alertGroups, allReceivers := api.alertGroups(rf, af)
 
@@ -420,21 +429,7 @@ func (api *API) alertFilter(matchers []*labels.Matcher, silenced, inhibited, act
 			return false
 		}
 
-		if !alertMatchesFilterLabels(&a.Alert, matchers) {
-			return false
-		}
-
-		return true
-	}
-}
-
-func routeFilter(receiverFilter *regexp.Regexp) func(r *dispatch.Route) bool {
-	return func(r *dispatch.Route) bool {
-		receiver := r.RouteOpts.Receiver
-		if receiverFilter != nil && !receiverFilter.MatchString(receiver) {
-			return false
-		}
-		return true
+		return alertMatchesFilterLabels(&a.Alert, matchers)
 	}
 }
 
